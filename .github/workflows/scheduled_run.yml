@@ -1,0 +1,20 @@
+name: Scheduled DQ run
+# Runs the pipeline on a schedule and uploads the DQ database + alert log as artefacts.
+on:
+  schedule: [{ cron: "30 0 * * *" }]   # 06:00 IST daily
+  workflow_dispatch:
+jobs:
+  dq:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - run: pip install -r requirements.txt
+      - run: python -m src.simulate --batches 1 --rows 25000 --start $(date +%F)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dq-outputs
+          path: |
+            data/dq.db
+            logs/alerts.log
