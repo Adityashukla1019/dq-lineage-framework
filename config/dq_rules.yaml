@@ -1,0 +1,31 @@
+# Data-quality rule catalogue. Add a rule here and it is automatically executed,
+# scored, trended, and alerted on - no code change needed.
+#
+# severity:  critical -> failing rows are QUARANTINED (never reach reporting)
+#            warning  -> rows are kept but counted in the scorecard
+# threshold: minimum acceptable pass rate (%). Below it = BREACH -> alert.
+# layers:    where the rule runs (staging = before cleaning, clean = after). Default: both.
+# NOTE: this file is trusted input (cross_field expressions use pandas eval).
+
+rules:
+  - {id: R001, name: loan_id is present,          dimension: Completeness, column: loan_id,   type: not_null, severity: critical, threshold: 99.5}
+  - {id: R002, name: loan_id is unique,           dimension: Uniqueness,   column: loan_id,   type: unique,   severity: critical, threshold: 99.0}
+  - {id: R003, name: loan_amnt is present,        dimension: Completeness, column: loan_amnt, type: not_null, severity: critical, threshold: 99.5}
+  - {id: R004, name: loan_amnt within 500-40000,  dimension: Validity,     column: loan_amnt, type: range,    severity: critical, threshold: 99.0, params: {min: 500, max: 40000}}
+  - {id: R005, name: int_rate is present,         dimension: Completeness, column: int_rate,  type: not_null, severity: critical, threshold: 99.0}
+  - {id: R006, name: "int_rate in (0, 40]",         dimension: Validity,     column: int_rate,  type: range,    severity: critical, threshold: 99.0, params: {min: 0, max: 40, exclusive_min: true}}
+  - {id: R007, name: grade is A-G,                dimension: Validity,     column: grade,     type: allowed_values, severity: critical, threshold: 99.5, params: {values: [A, B, C, D, E, F, G]}}
+  - {id: R008, name: annual_inc is present,       dimension: Completeness, column: annual_inc, type: not_null, severity: warning, threshold: 98.5}
+  - {id: R009, name: annual_inc is non-negative,  dimension: Validity,     column: annual_inc, type: range,   severity: warning,  threshold: 99.5, params: {min: 0, max: 10000000}}
+  - {id: R010, name: dti within 0-100,            dimension: Validity,     column: dti,       type: range,    severity: warning,  threshold: 99.5, params: {min: 0, max: 100}}
+  - {id: R011, name: issue_d is a valid date,     dimension: Completeness, column: issue_d,   type: not_null, severity: critical, threshold: 99.5}
+  - {id: R012, name: issue_d not in the future,   dimension: Timeliness,   column: issue_d,   type: not_future_date, severity: critical, threshold: 99.0}
+  - {id: R013, name: issue_d within 120 days of batch, dimension: Timeliness, column: issue_d, type: max_age_days, severity: warning, threshold: 98.5, params: {days: 120}}
+  - {id: R014, name: addr_state is a US state code, dimension: Validity,   column: addr_state, type: allowed_values, severity: warning, threshold: 98.0,
+     params: {values: [AL,AK,AZ,AR,CA,CO,CT,DE,DC,FL,GA,HI,ID,IL,IN,IA,KS,KY,LA,ME,MD,MA,MI,MN,MS,MO,MT,NE,NV,NH,NJ,NM,NY,NC,ND,OH,OK,OR,PA,RI,SC,SD,TN,TX,UT,VT,VA,WA,WV,WI,WY]}}
+  - {id: R015, name: email format is valid,       dimension: Validity,     column: email,     type: regex,    severity: warning,  threshold: 98.5, layers: [staging], params: {pattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'}}
+  - {id: R016, name: loan_status is a known value, dimension: Validity,    column: loan_status, type: allowed_values, severity: warning, threshold: 99.5, params: {values: [Current, Fully Paid, Charged Off, Late, Default, In Grace Period]}}
+  - {id: R017, name: funded_amnt <= loan_amnt,    dimension: Consistency,  column: funded_amnt, type: cross_field, severity: critical, threshold: 99.0, params: {expr: "funded_amnt <= loan_amnt", requires: [funded_amnt, loan_amnt]}}
+  - {id: R018, name: int_rate consistent with grade band, dimension: Consistency, column: int_rate, type: lookup_range, severity: warning, threshold: 98.0,
+     params: {group_by: grade, bands: {A: [5, 10], B: [9, 14], C: [13, 18], D: [17, 22], E: [21, 26], F: [25, 29], G: [28, 32]}}}
+  - {id: R019, name: term is 36 or 60 months,     dimension: Validity,     column: term,      type: allowed_values, severity: warning, threshold: 99.5, params: {values: [36, 60]}}
